@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "uuid": "8",
+    "ws": "7"
+  }
+}
