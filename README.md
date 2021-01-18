@@ -187,7 +187,7 @@ JSON with the command (e.g. `setblock ~1 ~0 ~0 grass`). Add this code below the 
 
 ```js
   function send(cmd) {
-    const msg = JSON.stringify({
+    const msg = {
       "header": {
         "version": 1,
         "requestId": uuid.v4(),     // Send unique ID each time
@@ -201,8 +201,8 @@ JSON with the command (e.g. `setblock ~1 ~0 ~0 grass`). Add this code below the 
           "type": "player"          // Message comes from player
         }
       }
-    })
-    socket.send(msg)                // Send the JSON string
+    }
+    socket.send(JSON.stringify(msg))  // Send the JSON string
   }
 ```
 
@@ -365,6 +365,9 @@ and add them to the `awaitedQueue`.
      }
      // Now we've sent as many commands as we can. Wait till the next PlayerMessage/commandResponse
 ```
+
+Finally, in function send(), instead of `socket.send(JSON.stringify(msg))`, we use
+`sendQueue.push(msg)` to add the message to the queue.
 
 This code in is [`mineserver5.js`](mineserver5.js).
 

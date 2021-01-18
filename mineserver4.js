@@ -39,7 +39,7 @@ wss.on('connection', socket => {
 
   // Send a command to MineCraft
   function send(cmd) {
-    const msg = JSON.stringify({
+    const msg = {
       "header": {
         "version": 1,
         "requestId": uuid.v4(),     // Send unique ID each time
@@ -53,8 +53,8 @@ wss.on('connection', socket => {
           "type": "player"          // Message comes from player
         }
       }
-    })
-    socket.send(msg)                // Send the JSON string
+    }
+    socket.send(JSON.stringify(msg))  // Send the JSON string
   }
 
   // Draw a pyramid of size "size" around the player.
