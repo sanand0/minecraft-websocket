@@ -6,6 +6,13 @@ Minecraft has [commands](https://minecraft.gamepedia.com/Commands) you can type 
 
 ![Minecraft grass block](img/minecraft-grass-block.png)
 
+- [Programming Minecraft with Websockets](#programming-minecraft-with-websockets)
+  - [Connect to Minecraft](#connect-to-minecraft)
+  - [Subscribe to chat messages](#subscribe-to-chat-messages)
+  - [Build structures using chat](#build-structures-using-chat)
+  - [Understand Minecraft's responses](#understand-minecrafts-responses)
+  - [Wait for commands to be done](#wait-for-commands-to-be-done)
+
 Note:
 
 - These instructions were tested on Minecraft Bedrock 1.16. I haven't tested them on the Java Edition.
@@ -47,7 +54,7 @@ Notes:
 - If you get an `Uncaught Error: Cannot find module 'ws'`, make sure you ran `npm install ws uuid`.
 - To disconnect, run `/connect off`.
 
-## Subscribe to chat
+## Subscribe to chat messages
 
 Now let's listen to the players' chat.
 
@@ -152,7 +159,7 @@ Notes:
 - Here's a sample program that
   [places a block in Minecraft](https://gist.github.com/pirosuke/1ca2aa4d8920f41dfbabcbc7dc2a669f)
 
-## Build things on command
+## Build structures using chat
 
 Let's create a pyramid of size `10` around us when we type `pyramid 10` in the chat window.
 
@@ -234,7 +241,7 @@ Notes:
 - The "requestId" needs to be a UUID -- at least for block commands. I tried unique "requestId"
   values like 1, 2, 3 etc. That didn't work.
 
-## Receive responses
+## Understand Minecraft's responses
 
 For every command you send, Minecraft sends a response. It's "header" looks like this:
 
@@ -250,7 +257,7 @@ For every command you send, Minecraft sends a response. It's "header" looks like
 
 If the command is successful, the response has `body.statusCode == 0`. For example:
 
-```json
+```jsonc
 {
   "body": {
     "statusCode": 0,                  // No error
@@ -262,7 +269,7 @@ If the command is successful, the response has `body.statusCode == 0`. For examp
 
 If the command failed, the response has a negative `body.statusCode`. For example:
 
-```json
+```jsonc
 {
   "body": {
     "statusCode": -2147352576,        // This is an error
