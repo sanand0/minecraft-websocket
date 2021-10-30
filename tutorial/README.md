@@ -15,7 +15,7 @@ Minecraft has [commands](https://minecraft.gamepedia.com/Commands) you can type 
 
 Note:
 
-- These instructions were tested on Minecraft Bedrock 1.16. I haven't tested them on the Java Edition.
+- These instructions were tested on Minecraft Bedrock 1.16 & 1.17. I haven't tested them on the Java Edition.
 
 ## Connect to Minecraft
 
@@ -379,3 +379,29 @@ This code in is [`mineserver5.js`](mineserver5.js).
   because we're trying to place duplicate blocks.
 
 ![Minecraft glowstone pyramid](img/minecraft-glowstone-pyramid-large.png)
+
+-----------------------------
+
+## Count the blocks
+
+I read that [Y=-35 is the best level for strip mining for diamonds](https://screenrant.com/minecraft-new-best-strip-mining-level-diamonds/)
+in the 1.17 Caves & Cliffs Update (experimental).
+
+To test that, I wrote [mineserver-blockcount.js](mineserver-blockcount.js). It counts blocks by
+Y-level. To run it:
+
+- Run `node mineserver-blockcount.js`.
+- Then type `/connect localhost:3000` in a Minecraft chat window.
+- Then type `block 100` in the chat window.
+- This counts the number of blocks from the current Y level to 100 Y levels below, for a 30x30 grid around your location.
+- The console will print a progress count of the number of queue size like `Queue: 334000 Awaited: 99`
+- When done, `blockcount.json` has the count of blocks by level.
+
+The results for two sample seeds and locations are at [blockcount.xlsx](blockcount.xlsx).
+
+While this is a small sample, here are some observations:
+
+- Coal is plentiful near the surface and is rarer at lower levels. It's nonexistent at negative Y levels.
+- Deepslate starts at Y=16 downwards. In -ve Y levels, Deepslate fully takes over from Stone, Diorite, Granite, Andesite, Dirt, Gravel and Tuff, which become nonexistent
+- The big caves start at Y=-30 downwards.
+- Finally, diamond ore does appear somewhat more common at around Y=-40
