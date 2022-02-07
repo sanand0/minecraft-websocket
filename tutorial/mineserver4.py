@@ -63,6 +63,9 @@ async def mineproxy(websocket, path):
                                  re.IGNORECASE)
                 if match:
                     await draw_pyramid(int(match.group(1)))
+            # If we get a command response, print it
+            if msg['header']['messagePurpose'] == 'commandResponse':
+                print(msg)
     except websockets.exceptions.ConnectionClosedError:
         print('Disconnected from MineCraft')
 

@@ -13,10 +13,10 @@ wss.on('connection', socket => {
   const awaitedQueue = {}     // Queue of responses awaited from Minecraft
   const blocks = {}           // blocks[block][level] = count of blocks at that level
 
-  // Tell Minecraft to send all chat messages. Required once after Minecraft starts
+  // Tell Minecraft to send all chat messages. Required once when Minecraft starts
   socket.send(JSON.stringify({
     "header": {
-      "version": 1,                     // We're using the version 1 message protocol
+      "version": 1,                     // Use version 1 message protocol
       "requestId": uuid.v4(),           // A unique ID for the request
       "messageType": "commandRequest",  // This is a request ...
       "messagePurpose": "subscribe"     // ... to subscribe to ...
@@ -72,7 +72,7 @@ wss.on('connection', socket => {
     // Otherwise, print progress every 1000 commands
     else if (sendQueue.length % 1000 == 0)
       console.log(`Queue: ${sendQueue.length} Awaited: ${awaitedLength}`)
-    // Now we've sent as many commands as we can. Wait till the next PlayerMessage/commandResponse
+    // Now we've sent as many commands as we can. Wait till the next message
   })
 
   // Send a command to MineCraft

@@ -9,10 +9,10 @@ const wss = new WebSocket.Server({ port: 3000 })
 wss.on('connection', socket => {
   console.log('Connected')
 
-  // Tell Minecraft to send all chat messages. Required once after Minecraft starts
+  // Tell Minecraft to send all chat messages. Required once when Minecraft starts
   socket.send(JSON.stringify({
     "header": {
-      "version": 1,                     // We're using the version 1 message protocol
+      "version": 1,                     // Use version 1 message protocol
       "requestId": uuid.v4(),           // A unique ID for the request
       "messageType": "commandRequest",  // This is a request ...
       "messagePurpose": "subscribe"     // ... to subscribe to ...

@@ -9,35 +9,7 @@ const wss = new WebSocket.Server({ port: 3000 })
 wss.on('connection', socket => {
   console.log('Connected')
 
-  // Tell Minecraft to send all chat messages. Required once after Minecraft starts
-  socket.send(JSON.stringify({
-    "header": {
-      "version": 1,                     // We're using the version 1 message protocol
-      "requestId": uuid.v4(),           // A unique ID for the request
-      "messageType": "commandRequest",  // This is a request ...
-      "messagePurpose": "subscribe"     // ... to subscribe to ...
-    },
-    "body": {
-      "eventName": "PlayerMessage"      // ... all player messages.
-    },
-  }))
-
-  // When MineCraft sends a message (e.g. on player chat), act on it.
-  socket.on('message', packet => {
-    const msg = JSON.parse(packet)
-    // If this is a chat window
-    if (msg.body.eventName === 'PlayerMessage') {
-      // ... and it's like "pyramid 10" (or some number), draw a pyramid
-      const match = msg.body.properties.Message.match(/^pyramid (\d+)/i)
-      if (match)
-        draw_pyramid(+match[1])
-    }
-    // If we get a command response, print it
-    if (msg.header.messagePurpose == 'commandResponse')
-      console.log(msg)
-  })
-
-  // Send a command to MineCraft
+  // Send a command "cmd" to MineCraft
   function send(cmd) {
     const msg = {
       "header": {
@@ -71,4 +43,32 @@ wss.on('connection', socket => {
       }
     }
   }
+
+  // Tell Minecraft to send all chat messages. Required once when Minecraft starts
+  socket.send(JSON.stringify({
+    "header": {
+      "version": 1,                     // Use version 1 message protocol
+      "requestId": uuid.v4(),           // A unique ID for the request
+      "messageType": "commandRequest",  // This is a request ...
+      "messagePurpose": "subscribe"     // ... to subscribe to ...
+    },
+    "body": {
+      "eventName": "PlayerMessage"      // ... all player messages.
+    },
+  }))
+
+  // When MineCraft sends a message (e.g. on player chat), act on it.
+  socket.on('message', packet => {
+    const msg = JSON.parse(packet)
+    // If this is a chat window
+    if (msg.body.eventName === 'PlayerMessage') {
+      // ... and it's like "pyramid 10" (or some number), draw a pyramid
+      const match = msg.body.properties.Message.match(/^pyramid (\d+)/i)
+      if (match)
+        draw_pyramid(+match[1])
+    }
+    // If we get a command response, print it
+    if (msg.header.messagePurpose == 'commandResponse')
+      console.log(msg)
+  })
 })

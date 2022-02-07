@@ -1,6 +1,5 @@
-import asyncio
-import websockets
-from uuid import uuid4
+const WebSocket = require('ws')
+const uuid = require('uuid')        // For later use
 
 // Create a new websocket server on port 3000
 console.log('Ready. On MineCraft chat, type /connect localhost:3000')

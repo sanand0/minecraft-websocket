@@ -11,53 +11,7 @@ wss.on('connection', socket => {
   const sendQueue = []        // Queue of commands to be sent
   const awaitedQueue = {}     // Queue of responses awaited from Minecraft
 
-  // Tell Minecraft to send all chat messages. Required once after Minecraft starts
-  socket.send(JSON.stringify({
-    "header": {
-      "version": 1,                     // We're using the version 1 message protocol
-      "requestId": uuid.v4(),           // A unique ID for the request
-      "messageType": "commandRequest",  // This is a request ...
-      "messagePurpose": "subscribe"     // ... to subscribe to ...
-    },
-    "body": {
-      "eventName": "PlayerMessage"      // ... all player messages.
-    },
-  }))
-
-  // When MineCraft sends a message (e.g. on player chat), act on it.
-  socket.on('message', packet => {
-    const msg = JSON.parse(packet)
-    // If this is a chat window
-    if (msg.body.eventName === 'PlayerMessage') {
-      // ... and it's like "pyramid 10" (or some number), draw a pyramid
-      const match = msg.body.properties.Message.match(/^pyramid (\d+)/i)
-      if (match)
-        draw_pyramid(+match[1])
-    }
-    // If we get a command response
-    if (msg.header.messagePurpose == 'commandResponse') {
-      // ... and it's for an awaited command
-      if (msg.header.requestId in awaitedQueue) {
-        // Print errors (if any)
-        if (msg.body.statusCode < 0)
-          console.log(awaitedQueue[msg.header.requestId].body.commandLine, msg.body.statusMessage)
-        // ... and delete it from the awaited queue
-        delete awaitedQueue[msg.header.requestId]
-      }
-    }
-    // Now, we've cleared all completed commands from the awaitedQueue.
-    // We can send new commands from the sendQueue -- up to a maximum of 100.
-    let count = Math.min(100 - Object.keys(awaitedQueue).length, sendQueue.length)
-    for (let i = 0; i < count; i++) {
-      // Each time, send the first command in sendQueue, and add it to the awaitedQueue
-      let command = sendQueue.shift()
-      socket.send(JSON.stringify(command))
-      awaitedQueue[command.header.requestId] = command
-    }
-    // Now we've sent as many commands as we can. Wait till the next PlayerMessage/commandResponse
-  })
-
-  // Send a command to MineCraft
+  // Send a command "cmd" to MineCraft
   function send(cmd) {
     const msg = {
       "header": {
@@ -91,4 +45,51 @@ wss.on('connection', socket => {
       }
     }
   }
+
+  // Tell Minecraft to send all chat messages. Required once when Minecraft starts
+  socket.send(JSON.stringify({
+    "header": {
+      "version": 1,                     // Use version 1 message protocol
+      "requestId": uuid.v4(),           // A unique ID for the request
+      "messageType": "commandRequest",  // This is a request ...
+      "messagePurpose": "subscribe"     // ... to subscribe to ...
+    },
+    "body": {
+      "eventName": "PlayerMessage"      // ... all player messages.
+    },
+  }))
+
+  // When MineCraft sends a message (e.g. on player chat), act on it.
+  socket.on('message', packet => {
+    const msg = JSON.parse(packet)
+    // If this is a chat window
+    if (msg.body.eventName === 'PlayerMessage') {
+      // ... and it's like "pyramid 10" (or some number), draw a pyramid
+      const match = msg.body.properties.Message.match(/^pyramid (\d+)/i)
+      if (match)
+        draw_pyramid(+match[1])
+    }
+    // If we get a command response, act on it
+    if (msg.header.messagePurpose == 'commandResponse') {
+      // ... and it's for an awaited command
+      if (msg.header.requestId in awaitedQueue) {
+        // Print errors (if any)
+        if (msg.body.statusCode < 0)
+          console.log(awaitedQueue[msg.header.requestId].body.commandLine, msg.body.statusMessage)
+        // ... and delete it from the awaited queue
+        delete awaitedQueue[msg.header.requestId]
+      }
+    }
+    // Now, we've cleared all completed commands from the awaitedQueue.
+
+    // We can send new commands from the sendQueue -- up to a maximum of 100.
+    let count = Math.min(100 - Object.keys(awaitedQueue).length, sendQueue.length)
+    for (let i = 0; i < count; i++) {
+      // Each time, send the first command in sendQueue, and add it to the awaitedQueue
+      let command = sendQueue.shift()
+      socket.send(JSON.stringify(command))
+      awaitedQueue[command.header.requestId] = command
+    }
+    // Now we've sent as many commands as we can. Wait till the next message
+  })
 })

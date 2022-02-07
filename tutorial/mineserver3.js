@@ -9,10 +9,45 @@ const wss = new WebSocket.Server({ port: 3000 })
 wss.on('connection', socket => {
   console.log('Connected')
 
-  // Tell Minecraft to send all chat messages. Required once after Minecraft starts
+  // Send a command "cmd" to MineCraft
+  function send(cmd) {
+    const msg = {
+      "header": {
+        "version": 1,
+        "requestId": uuid.v4(),     // Send unique ID each time
+        "messagePurpose": "commandRequest",
+        "messageType": "commandRequest"
+      },
+      "body": {
+        "version": 1,
+        "commandLine": cmd,         // Define the command
+        "origin": {
+          "type": "player"          // Message comes from player
+        }
+      }
+    }
+    socket.send(JSON.stringify(msg))  // Send the JSON string
+  }
+
+  // Draw a pyramid of size "size" around the player.
+  function draw_pyramid(size) {
+    // y is the height of the pyramid. Start with y=0, and keep building up
+    for (let y = 0; y < size + 1; y++) {
+      // At the specified y, place blocks in a rectangle of size "side"
+      let side = size - y;
+      for (let x = -side; x < side + 1; x++) {
+        send(`setblock ~${x} ~${y} ~${-side} glowstone`)
+        send(`setblock ~${x} ~${y} ~${+side} glowstone`)
+        send(`setblock ~${-side} ~${y} ~${x} glowstone`)
+        send(`setblock ~${+side} ~${y} ~${x} glowstone`)
+      }
+    }
+  }
+
+  // Tell Minecraft to send all chat messages. Required once when Minecraft starts
   socket.send(JSON.stringify({
     "header": {
-      "version": 1,                     // We're using the version 1 message protocol
+      "version": 1,                     // Use version 1 message protocol
       "requestId": uuid.v4(),           // A unique ID for the request
       "messageType": "commandRequest",  // This is a request ...
       "messagePurpose": "subscribe"     // ... to subscribe to ...
@@ -33,39 +68,4 @@ wss.on('connection', socket => {
         draw_pyramid(+match[1])
     }
   })
-
-  // Send a command to MineCraft
-  function send(cmd) {
-    const msg = JSON.stringify({
-      "header": {
-        "version": 1,
-        "requestId": uuid.v4(),     // Send unique ID each time
-        "messagePurpose": "commandRequest",
-        "messageType": "commandRequest"
-      },
-      "body": {
-        "version": 1,
-        "commandLine": cmd,         // Define the command
-        "origin": {
-          "type": "player"          // Message comes from player
-        }
-      }
-    })
-    socket.send(msg)                // Send the JSON string
-  }
-
-  // Draw a pyramid of size "size" around the player.
-  function draw_pyramid(size) {
-    // y is the height of the pyramid. Start with y=0, and keep building up
-    for (let y = 0; y < size + 1; y++) {
-      // At the specified y, place blocks in a rectangle of size "side"
-      let side = size - y;
-      for (let x = -side; x < side + 1; x++) {
-        send(`setblock ~${x} ~${y} ~${-side} glowstone`)
-        send(`setblock ~${x} ~${y} ~${+side} glowstone`)
-        send(`setblock ~${-side} ~${y} ~${x} glowstone`)
-        send(`setblock ~${+side} ~${y} ~${x} glowstone`)
-      }
-    }
-  }
 })

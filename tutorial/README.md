@@ -15,13 +15,15 @@ Minecraft has [commands](https://minecraft.gamepedia.com/Commands) you can type 
 
 Note:
 
-- These instructions were tested on Minecraft Bedrock 1.16 & 1.17. I haven't tested them on the Java Edition.
+- These instructions were tested on Minecraft Bedrock 1.16, 1.17 & 1.18. I haven't tested them on the Java Edition.
 
 ## Connect to Minecraft
 
-You can send any command to Minecraft from a websocket server. Let's use JavaScript for this.
+You can send any command to Minecraft from a websocket server.
 
-First, run `npm install ws uuid`. (We need [`ws`](https://npmjs.com/package/ws) for websockets and [`uuid`](https://npmjs.com/package/uuid) to generate unique IDs.)
+### Connect to Minecraft - JavaScript
+
+On [Node.js](https://nodejs.org/) 10.0+, run `npm install ws uuid`. (We need [`ws`](https://npmjs.com/package/ws) for websockets and [`uuid`](https://npmjs.com/package/uuid) to generate unique IDs.)
 
 Then create this [`mineserver1.js`](mineserver1.js):
 
@@ -46,13 +48,54 @@ Run `node mineserver1.js`. Then type `/connect localhost:3000` in a Minecraft ch
 
 Now, our program is connected to Minecraft, and can send/receive messages.
 
+[Check the troubleshooting guide if this doesn't work](#connect-to-minecraft-troubleshooting).
+
 ![Minecraft chat connect](img/minecraft-chat-connected.png)
 
-Notes:
+### Connect to Minecraft - Python
 
-- The Python equivalent is in [mineserver1.py](mineserver1.py). Run `python mineserver1.py`.
-- If you get an `Uncaught Error: Cannot find module 'ws'`, make sure you ran `npm install ws uuid`.
-- To disconnect, run `/connect off`.
+On [Python](https://www.python.org/) 3.7+, run `pip install websockets`. (This installs the [`websockets`](https://pypi.org/project/websockets/) package.)
+
+Then create this [`mineserver1.py`](mineserver1.py):
+
+```py
+import asyncio
+import websockets
+import json                 # noqa: for later use
+from uuid import uuid4      # noqa: for later use
+
+
+# On Minecraft, when you type "/connect localhost:3000" it creates a connection
+async def mineproxy(websocket, path):
+    print('Connected')
+
+start_server = websockets.serve(mineproxy, host="localhost", port=3000)
+print('Ready. On MineCraft chat, type /connect localhost:3000')
+
+asyncio.get_event_loop().run_until_complete(start_server)
+asyncio.get_event_loop().run_forever()
+```
+
+Run `python mineserver1.py`. Then type `/connect localhost:3000` in a Minecraft chat window. You'll see 2 things:
+
+1. MineCraft says "Connection established to server: ws://localhost:3000"
+2. Python prints "Connected"
+
+Now, our program is connected to Minecraft, and can send/receive messages.
+
+[Check the troubleshooting guide if this doesn't work](#connect-to-minecraft-troubleshooting).
+
+![Minecraft chat connect](img/minecraft-chat-connected.png)
+
+### Connect to Minecraft - Troubleshooting
+
+- If Node says `Uncaught Error: Cannot find module 'ws'`, make sure you ran `npm install ws uuid`.
+- If Python says `ModuleNotFoundError: No module named 'websockets'`, make sure you ran `pip install websockets`.
+- If Node says `Error: listen EADDRINUSE: address already in use :::3000` or Python says`OSError: [Errno 10048] error while attempting to bind on address ('127.0.0.1', 3000): only one usage of each socket address (protocol/network address/port) is normally permitted`, another process is using port 3000. Restart your machine, or use `netstat -ano` to see which process is using port 3000 and kill it.
+- If MineCraft says `Could not connect to server: ws://localhost:3000`,
+  - Go to [WebSocketKing.com](https://websocketking.com/) and connect to `ws://localhost:3000`. Check that it says "Connected to ws://localhost:3000" and Node prints "Connected".
+  - [Minecraft might not connect to localhost](https://doc.pmmp.io/en/rtfd/faq/connecting/win10localhostcantconnect.html). find your IP address with [`ipconfig`](https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/ipconfig) or [`ifconfig`](https://en.wikipedia.org/wiki/Ifconfig). Replace `localhost:3000` with your IP address, e.g. `192.168.1.2:3000`).
+- To disconnect, type `/connect off` in Minecraft. Or press Ctrl+C on Node / Python to stop the server.
 
 ## Subscribe to chat messages
 
@@ -62,13 +105,35 @@ A connected websocket server can send a "subscribe" message to Minecraft saying 
 "listen" to specific actions. For example, you can subscribe to "PlayerMessage". Whenever a player
 sents a chat message, Minecraft will notify the websocket client.
 
-Here's how to do that. Add this code in the `wss.on('connection', socket => { ... })` function.
+Notes:
+
+- The official Minecraft docs say that the [MCWSS protocol is outdated](https://minecraft.gamepedia.com/Commands/wsserver#Uses).
+  But it seems to work.
+- The full list of things we can subscribe to is undocumented, but
+  [@jocopa3](https://gist.github.com/jocopa3/) has reverse-engineered a
+  [list of messages](https://gist.github.com/jocopa3/5f718f4198f1ea91a37e3a9da468675c)
+  we can subscribe to, and they're somewhat meaningful.
+- [This Go package](https://github.com/Sandertv/mcwss/) has code that explores the
+  [protocol](https://github.com/Sandertv/mcwss/tree/master/protocol) further.
+- This [chat](https://www.reddit.com/r/MCPE/comments/5ta719/mcpewin10_global_chat_using_websockets/)
+  has more details. There's also an
+  [outdated list of JSON messages](https://gist.github.com/jocopa3/54b42fb6361952997c4a6e38945e306f)
+  from [@jocopa3](https://gist.github.com/jocopa3/).
+- Here's a sample program that
+  [places a block in Minecraft](https://gist.github.com/pirosuke/1ca2aa4d8920f41dfbabcbc7dc2a669f)
+- The `requestId` needs to be a UUID -- at least for block commands. I tried unique `requestId`
+  values like 1, 2, 3 etc. That didn't work.
+
+
+## Subscribe to chat messages - JavaScript
+
+Add this code inside the `wss.on('connection', socket => { ... })` function.
 
 ```js
-  // Tell Minecraft to send all chat messages. Required once after Minecraft starts
+  // Tell Minecraft to send all chat messages. Required once when Minecraft starts
   socket.send(JSON.stringify({
     "header": {
-      "version": 1,                     // We're using the version 1 message protocol
+      "version": 1,                     // Use version 1 message protocol
       "requestId": uuid.v4(),           // A unique ID for the request
       "messageType": "commandRequest",  // This is a request ...
       "messagePurpose": "subscribe"     // ... to subscribe to ...
@@ -79,8 +144,9 @@ Here's how to do that. Add this code in the `wss.on('connection', socket => { ..
   }))
 ```
 
-Now, every time a player types something in the chat window, the socket will receive it. Add this
-code below the above code:
+Now, every time a player types something in the chat window, the socket will receive it.
+
+Add this code after the above code:
 
 ```js
   // When MineCraft sends a message (e.g. on player chat), print it.
@@ -92,10 +158,12 @@ code below the above code:
 
 This code parses all the messages it receives and prints them.
 
-This code in is [`mineserver2.js`](mineserver2.js). Run `node mineserver2.js`.
-Then type `/connect localhost:3000` in a Minecraft chat window.
-Then type a message (e.g. "alpha") in the chat window.
-You'll see a message like this in the console.
+This code in is [`mineserver2.js`](mineserver2.js).
+
+- Run `node mineserver2.js`.
+- Then type `/connect localhost:3000` in a Minecraft chat window.
+- Then type a message (e.g. "alpha") in the chat window.
+- You'll see a message like this in the console.
 
 ```js
 {
@@ -123,12 +191,12 @@ You'll see a message like this in the console.
       Dim: 0,
       GlobalMultiplayerCorrelationId: '91967b8c-01c6-4708-8a31-f111ddaa8174',
       Message: 'alpha',             // This is the message I typed
-      MessageType: 'chat',          // It's of type chat
+      MessageType: 'chat',          // It's of type "chat"
       Mode: 1,
       NetworkType: 0,
       Plat: 'Win 10.0.19041.1',
       PlayerGameMode: 1,            // Creative. https://minecraft.gamepedia.com/Commands/gamemode
-      Sender: 'Anand',              // That's me.
+      Sender: 'Anand',              // That's me
       Seq: 497,
       WorldFeature: 0,
       WorldSessionId: '8c9b4d3b-7118-4324-ba32-c357c709d682',
@@ -141,35 +209,108 @@ You'll see a message like this in the console.
 }
 ```
 
-Notes:
+## Subscribe to chat messages - Python
 
-- The Python equivalent is in [mineserver2.py](mineserver2.py). Run `python mineserver2.py`.
-- The official Minecraft docs say that the [MCWSS protocol is outdated](https://minecraft.gamepedia.com/Commands/wsserver#Uses).
-  But it seems to work.
-- The full list of things we can subscribe to is undocumented, but
-  [@jocopa3](https://gist.github.com/jocopa3/) has reverse-engineered a
-  [list of messages](https://gist.github.com/jocopa3/5f718f4198f1ea91a37e3a9da468675c)
-  we can subscribe to, and they're somewhat meaningful.
-- [This Go package](https://github.com/Sandertv/mcwss/) has code that explores the
-  [protocol](https://github.com/Sandertv/mcwss/tree/master/protocol) further.
-- This [chat](https://www.reddit.com/r/MCPE/comments/5ta719/mcpewin10_global_chat_using_websockets/)
-  has more details. There's also an
-  [outdated list of JSON messages](https://gist.github.com/jocopa3/54b42fb6361952997c4a6e38945e306f)
-  from [@jocopa3](https://gist.github.com/jocopa3/).
-- Here's a sample program that
-  [places a block in Minecraft](https://gist.github.com/pirosuke/1ca2aa4d8920f41dfbabcbc7dc2a669f)
+Add this code inside the `async def mineproxy(websocket, path):` function.
+
+```py
+    # Tell Minecraft to send all chat messages. Required once when Minecraft starts
+    await websocket.send(
+        json.dumps({
+            "header": {
+                "version": 1,                     # Use version 1 message protocol
+                "requestId": f'{uuid4()}',        # A unique ID for the request
+                "messageType": "commandRequest",  # This is a request ...
+                "messagePurpose": "subscribe"     # ... to subscribe to ...
+            },
+            "body": {
+                "eventName": "PlayerMessage"
+            },
+        }))
+```
+
+Now, every time a player types something in the chat window, the socket will receive it.
+
+Add this code after the above code:
+
+```py
+    try:
+        # When MineCraft sends a message (e.g. on player chat), print it.
+        async for msg in websocket:
+            msg = json.loads(msg)
+            print(msg)
+    # When MineCraft closes a connection, it raises this Exception.
+    except websockets.exceptions.ConnectionClosedError:
+        print('Disconnected from MineCraft')
+```
+
+This code parses all the messages it receives and prints them.
+
+This code in is [`mineserver2.py`](mineserver2.py).
+
+- Run `python mineserver2.py`.
+- Then type `/connect localhost:3000` in a Minecraft chat window.
+- Then type a message (e.g. "alpha") in the chat window.
+- You'll see a message like this in the console.
+
+```py
+{
+  "body": {
+    "eventName": "PlayerMessage",
+    "measurements": None,
+    "properties": {
+      "AccountType": 1,
+      "ActiveSessionID": "da2210c5-564f-4657-8b77-4eb8eba7b6b1",
+      "AppSessionID": "b2920a67-f639-4164-a9ce-60b613331289",
+      "Biome": 1,               # Plains Biome. https://minecraft.gamepedia.com/Biome
+      "Build": "1.18.2",        # That's my build
+      "BuildNum": "7966245",
+      "BuildPlat": 7,
+      "Cheevos": False,
+      "ClientId": "fcaa9859-0921-348e-bc7c-1c91b72ccec1",
+      "CurrentNumDevices": 1,
+      "DeviceSessionId": "b2920a67-f639-4164-a9ce-60b613331289",
+      "Difficulty": "NORMAL",   # I'm playing on normal difficulty
+      "Dim": 0,
+      "DnAPlat": "Win,D,,UWP",
+      "GlobalMultiplayerCorrelationId": "757aeca7-5664-4a03-880f-abe10ecbcd7f",
+      "Message": "alpha",       # This is the message I typed
+      "MessageType": "chat",    # It's of type "chat"
+      "Mode": 1,
+      "NetworkType": 0,
+      "Plat": "Win 10.0.19041.1",
+      "PlayerGameMode": 1,      # Creative. https://minecraft.gamepedia.com/Commands/gamemode
+      "Sender": "sanand0",      # That's me
+      "Seq": 90,
+      "ServerId": "raknet:12172568328544955244",
+      "UserId": "2535429213968507",
+      "WorldFeature": 0,
+      "WorldSessionId": "346f0991-8c84-460b-b42f-8696ce8c8a18",
+      "editionType": "win10",
+      "isTrial": 0,
+      "isUnderground": False,
+      "locale": "en_IN",
+      "vrMode": False
+    }
+  },
+  "header": {
+    "messagePurpose": "event",    # This is an event
+    "requestId": "00000000-0000-0000-0000-000000000000",
+    "version": 1                  # using version 1 message protocol
+  }
+}
+```
 
 ## Build structures using chat
 
 Let's create a pyramid of size `10` around us when we type `pyramid 10` in the chat window.
 
-The first step is to check if the player sent a chat message like `pyramid 10` (or another number).
-Add this code below the above code:
+### Build structures using chat - JavaScript
+
+Check if the player sent a chat message like `pyramid 10` (or another number).
+Replace the `console.log(msg)` line in [`mineserver2.js`](mineserver2.js) with this code:
 
 ```js
-  // When MineCraft sends a message (e.g. on player chat), act on it.
-  socket.on('message', packet => {
-    const msg = JSON.parse(packet)
     // If this is a chat window
     if (msg.body.eventName === 'PlayerMessage') {
       // ... and it's like "pyramid 10" (or some number), draw a pyramid
@@ -177,15 +318,16 @@ Add this code below the above code:
       if (match)
         draw_pyramid(+match[1])
     }
-  })
 ```
 
 If the user types "pyramid 3" on the chat window, `draw_pyramid(3)` is called.
 
 In `draw_pyramid()`, let's send commands to build a pyramid. To send a command, we need to create a
-JSON with the command (e.g. `setblock ~1 ~0 ~0 grass`). Add this code below the above code:
+JSON with the command (e.g. `setblock ~1 ~0 ~0 grass`).
+Add this code under `console.log('Connected')` in [`mineserver2.js`](mineserver2.js):
 
 ```js
+  // Send a command "cmd" to MineCraft
   function send(cmd) {
     const msg = {
       "header": {
@@ -195,7 +337,7 @@ JSON with the command (e.g. `setblock ~1 ~0 ~0 grass`). Add this code below the 
         "messageType": "commandRequest"
       },
       "body": {
-        "version": 1,               // TODO: Needed?
+        "version": 1,
         "commandLine": cmd,         // Define the command
         "origin": {
           "type": "player"          // Message comes from player
@@ -235,11 +377,70 @@ This code in is [`mineserver3.js`](mineserver3.js).
 
 ![Minecraft glowstone pyramid](img/minecraft-glowstone-pyramid.png)
 
-Notes:
+### Build structures using chat - Python
 
-- The Python equivalent is in [mineserver3.py](mineserver3.py). Run `python mineserver3.py`.
-- The "requestId" needs to be a UUID -- at least for block commands. I tried unique "requestId"
-  values like 1, 2, 3 etc. That didn't work.
+Check if the player sent a chat message like `pyramid 10` (or another number).
+Replace the `print(msg)` line in [`mineserver2.py`](mineserver2.py) with with this code:
+
+```py
+            if msg['body'].get('eventName', None) == 'PlayerMessage':
+                match = re.match(r'^pyramid (\d+)', msg['body']['properties']['Message'],
+                                 re.IGNORECASE)
+                if match:
+                    await draw_pyramid(int(match.group(1)))
+```
+
+If the user types "pyramid 3" on the chat window, `draw_pyramid(3)` is called.
+
+In `draw_pyramid()`, let's send commands to build a pyramid. To send a command, we need to create a
+JSON with the command (e.g. `setblock ~1 ~0 ~0 grass`). Add this code below the above code:
+
+```py
+    async def send(cmd):
+        '''Send a command "cmd" to MineCraft'''
+        msg = {
+            "header": {
+                "version": 1,
+                "requestId": f'{uuid4()}',        # A unique ID for the request
+                "messagePurpose": "commandRequest",
+                "messageType": "commandRequest"
+            },
+            "body": {
+                "version": 1,
+                "commandLine": cmd,               # Define the command
+                "origin": {
+                    "type": "player"              # Message comes from player
+                }
+            }
+        }
+        await websocket.send(json.dumps(msg))     # Send the JSON string
+```
+
+Let's write `draw_pyramid()` to create a pyramid using glowstone by adding this code below the
+above code:
+
+```py
+    async def draw_pyramid(size):
+        '''Draw a pyramid of size "size" around the player.'''
+        # y is the height of the pyramid. Start with y=0, and keep building up
+        for y in range(0, size + 1):
+            # At the specified y, place blocks in a rectangle of size "side"
+            side = size - y
+            for x in range(-side, side + 1):
+                await send(f'setblock ~{x} ~{y} ~{-side} glowstone')
+                await send(f'setblock ~{x} ~{y} ~{+side} glowstone')
+                await send(f'setblock ~{-side} ~{y} ~{x} glowstone')
+                await send(f'setblock ~{+side} ~{y} ~{x} glowstone')
+```
+
+This code in is [`mineserver3.py`](mineserver3.py).
+
+- Run `python mineserver3.py`.
+- Then type `/connect localhost:3000` in a Minecraft chat window.
+- Then type `pyramid 3` in the chat window.
+- You'll be surrounded by a glowstone pyramid.
+
+![Minecraft glowstone pyramid](img/minecraft-glowstone-pyramid.png)
 
 ## Understand Minecraft's responses
 
@@ -278,7 +479,19 @@ If the command failed, the response has a negative `body.statusCode`. For exampl
 }
 ```
 
-To print these, add this to `socket.on('message', ...)`:
+Some common error messages are:
+
+- `The block couldn't be placed` (-2147352576):
+  The same block was already at that location.
+- `Syntax error: Unexpected "xxx": at "~0 ~9 ~-1 >>xxx<<"` (-2147483648):
+  You gave wrong arguments to the command.
+- `Too many commands have been requested, wait for one to be done` (-2147418109):
+  Minecraft only allows 100 commands can be executed without waiting for their response.
+- [More error messages here](https://github.com/CloudburstMC/Language/blob/master/en_GB.lang).
+
+## Understand Minecraft's responses - JavaScript
+
+To print these, add this to the end of `socket.on('message', ...)`:
 
 ```js
     // If we get a command response, print it
@@ -293,15 +506,22 @@ This code in is [`mineserver4.js`](mineserver4.js).
 - Then type `pyramid 3` in the chat window.
 - You'll be surrounded by a glowstone pyramid, and the *console will show every command response*.
 
-Notes on common error messages:
+## Understand Minecraft's responses - Python
 
-- `The block couldn't be placed` (-2147352576):
-  The same block was already at that location.
-- `Syntax error: Unexpected "xxx": at "~0 ~9 ~-1 >>xxx<<"` (-2147483648):
-  You gave wrong arguments to the command.
-- `Too many commands have been requested, wait for one to be done` (-2147418109):
-  Minecraft only allows 100 commands can be executed without waiting for their response.
-- [More error messages here](https://github.com/CloudburstMC/Language/blob/master/en_GB.lang).
+To print these, add this to the end of `socket.on('message', ...)`:
+
+```js
+    // If we get a command response, print it
+    if (msg.header.messagePurpose == 'commandResponse')
+      console.log(msg)
+```
+
+This code in is [`mineserver4.js`](mineserver4.js).
+
+- Run `node mineserver4.js`.
+- Then type `/connect localhost:3000` in a Minecraft chat window.
+- Then type `pyramid 3` in the chat window.
+- You'll be surrounded by a glowstone pyramid, and the *console will show every command response*.
 
 ## Wait for commands to be done
 
@@ -326,22 +546,35 @@ a `Too many commands have been requested, wait for one to be done` error.
 }
 ```
 
-So let's modify `send()` to add to a queue and send in batches. We'll create two queues:
+So let's modify `send()` to add to a queue and send in batches.
+
+## Wait for commands to be done -- JavaScript
+
+We'll create two queues, one for commands yet to be sent, and another for commends sent - whose
+response we're awaiting from MineCraft.
+
+Add this code under `console.log('Connected')` in [`mineserver4.js`](mineserver4.js):
 
 ```js
   const sendQueue = []        // Queue of commands to be sent
   const awaitedQueue = {}     // Queue of responses awaited from Minecraft
 ```
 
-In `wss.on('connection', ...)`, when Minecraft completes a command, we'll remove it from the
-`awaitedQueue`. If the command has an error, we'll report it.
+Now, let's do 2 things:
+
+1. When Minecraft sends a command response, we'll remove it from the `awaitedQueue`. (If
+   the command has an error, we'll report it.)
+2. Then, after processing Minecraft's command response, we'll send pending messages from
+   `sendQueue`, upto 100 at a time, and add them to the `awaitedQueue`.
+
+Replace the `if (msg.header.messagePurpose == 'commandResponse')` block in [`mineserver4.js`](mineserver4.js) with this:
 
 ```js
     // If we get a command response
     if (msg.header.messagePurpose == 'commandResponse') {
       // ... and it's for an awaited command
       if (msg.header.requestId in awaitedQueue) {
-        // Print errors 5(if any)
+        // Print errors (if any)
         if (msg.body.statusCode < 0)
           console.log(awaitedQueue[msg.header.requestId].body.commandLine, msg.body.statusMessage)
         // ... and delete it from the awaited queue
@@ -349,25 +582,23 @@ In `wss.on('connection', ...)`, when Minecraft completes a command, we'll remove
       }
     }
     // Now, we've cleared all completed commands from the awaitedQueue.
+
+    // We can send new commands from the sendQueue -- up to a maximum of 100.
+    let count = Math.min(100 - Object.keys(awaitedQueue).length, sendQueue.length)
+    for (let i = 0; i < count; i++) {
+      // Each time, send the first command in sendQueue, and add it to the awaitedQueue
+      let command = sendQueue.shift()
+      socket.send(JSON.stringify(command))
+      awaitedQueue[command.header.requestId] = command
+    }
+    // Now we've sent as many commands as we can. Wait till the next message
 ```
 
-Once we've processed Minecraft's response, we'll send pending messages from `sendQueue`, upto 100
-and add them to the `awaitedQueue`.
+Finally, in `function send()`, instead of `socket.send(JSON.stringify(msg))`, use:
 
 ```js
-     // We can send new commands from the sendQueue -- up to a maximum of 100.
-     let count = Math.min(100 - Object.keys(awaitedQueue).length, sendQueue.length)
-     for (let i = 0; i < count; i++) {
-       // Each time, send the first command in sendQueue, and add it to the awaitedQueue
-       let command = sendQueue.shift()
-       socket.send(JSON.stringify(command))
-       awaitedQueue[command.header.requestId] = command
-     }
-     // Now we've sent as many commands as we can. Wait till the next PlayerMessage/commandResponse
+    sendQueue.push(msg)            // Add the message to the queue
 ```
-
-Finally, in function send(), instead of `socket.send(JSON.stringify(msg))`, we use
-`sendQueue.push(msg)` to add the message to the queue.
 
 This code in is [`mineserver5.js`](mineserver5.js).
 
@@ -380,28 +611,63 @@ This code in is [`mineserver5.js`](mineserver5.js).
 
 ![Minecraft glowstone pyramid](img/minecraft-glowstone-pyramid-large.png)
 
------------------------------
+## Wait for commands to be done -- Python
 
-## Count the blocks
+We'll create two queues, one for commands yet to be sent, and another for commends sent - whose
+response we're awaiting from MineCraft.
 
-I read that [Y=-35 is the best level for strip mining for diamonds](https://screenrant.com/minecraft-new-best-strip-mining-level-diamonds/)
-in the 1.17 Caves & Cliffs Update (experimental).
+Add this code under `print('Connected')` in [`mineserver4.py`](mineserver4.py):
 
-To test that, I wrote [mineserver-blockcount.js](mineserver-blockcount.js). It counts blocks by
-Y-level. To run it:
+```py
+    send_queue = []         # Queue of commands to be sent
+    awaited_queue = {}      # Queue of responses awaited from Minecraft
+```
 
-- Run `node mineserver-blockcount.js`.
+Now, let's do 2 things:
+
+1. When Minecraft sends a command response, we'll remove it from the `awaited_queue`. (If
+   the command has an error, we'll report it.)
+2. Then, after processing Minecraft's command response, we'll send pending messages from
+   `send_queue`, upto 100 at a time, and add them to the `awaited_queue`.
+
+Replace the `if (msg.header.messagePurpose == 'commandResponse')` block in [`mineserver4.js`](mineserver4.js) with this:
+
+```py
+            # If we get a command response, act on it
+            if msg['header']['messagePurpose'] == 'commandResponse':
+                # ... and it's for an awaited command
+                if msg['header']['requestId'] in awaited_queue:
+                    # Print errors (if any)
+                    if msg['body']['statusCode'] < 0:
+                        print(awaited_queue[msg['header']['requestId']]['body']['commandLine'],
+                              msg['body']['statusMessage'])
+                    # ... and delete it from the awaited queue
+                    del awaited_queue[msg['header']['requestId']]
+            # Now, we've cleared all completed commands from the awaited_queue.
+
+            # We can send new commands from the send_queue -- up to a maximum of 100.
+            count = 100 - len(awaited_queue)
+            for command in send_queue[:count]:
+                # Send the command in send_queue, and add it to the awaited_queue
+                await websocket.send(json.dumps(command))
+                awaited_queue[command['header']['requestId']] = command
+            send_queue = send_queue[count:]
+            # Now we've sent as many commands as we can. Wait till the next message
+```
+
+Finally, in `async def send()`, instead of `await websocket.send(json.dumps(msg))`, use:
+
+```py
+        send_queue.append(msg)          # Add the message to the queue
+```
+
+This code in is [`mineserver5.js`](mineserver5.js).
+
+- Run `node mineserver5.js`.
 - Then type `/connect localhost:3000` in a Minecraft chat window.
-- Then type `block 100` in the chat window.
-- This counts the number of blocks from the current Y level to 100 Y levels below, for a 30x30 grid around your location.
-- The console will print a progress count of the number of queue size like `Queue: 334000 Awaited: 99`
-- When done, `blockcount.json` has the count of blocks by level.
+- Then type `pyramid 6` in the chat window.
+- You'll be surrounded by a large glowstone pyramid.
+- The console will print messages like `setblock ~0 ~6 ~0 glowstone The block couldn't be placed`
+  because we're trying to place duplicate blocks.
 
-The results for two sample seeds and locations are at [blockcount.xlsx](blockcount.xlsx).
-
-While this is a small sample, here are some observations:
-
-- Coal is plentiful near the surface and is rarer at lower levels. It's nonexistent at negative Y levels.
-- Deepslate starts at Y=16 downwards. In -ve Y levels, Deepslate fully takes over from Stone, Diorite, Granite, Andesite, Dirt, Gravel and Tuff, which become nonexistent
-- The big caves start at Y=-30 downwards.
-- Finally, diamond ore does appear somewhat more common at around Y=-40
+![Minecraft glowstone pyramid](img/minecraft-glowstone-pyramid-large.png)
