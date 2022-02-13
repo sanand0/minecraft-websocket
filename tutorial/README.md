@@ -13,9 +13,10 @@ Minecraft has [commands](https://minecraft.gamepedia.com/Commands) you can type 
   - [Understand Minecraft's responses](#understand-minecrafts-responses)
   - [Wait for commands to be done](#wait-for-commands-to-be-done)
 
-Note:
-
-- These instructions were tested on Minecraft Bedrock 1.16, 1.17 & 1.18. I haven't tested them on the Java Edition.
+These instructions were tested on
+  - Minecraft Bedrock 1.16, 1.17 & 1.18 (not tested on the Java or other editions)
+  - Windows 10
+  - Node.js 14 / Python 3.7
 
 ## Connect to Minecraft
 
@@ -54,7 +55,9 @@ Now, our program is connected to Minecraft, and can send/receive messages.
 
 ### Connect to Minecraft - Python
 
-On [Python](https://www.python.org/) 3.7+, run `pip install websockets`. (This installs the [`websockets`](https://pypi.org/project/websockets/) package.)
+On [Python](https://www.python.org/) 3.9+, run `pip install websockets`.
+This installs the [`websockets`](https://pypi.org/project/websockets/) package.
+I used [version 10.1](https://pypi.org/project/websockets/10.1/)+.
 
 Then create this [`mineserver1.py`](mineserver1.py):
 
@@ -63,17 +66,18 @@ import asyncio
 import websockets
 import json                 # noqa: for later use
 from uuid import uuid4      # noqa: for later use
-
+import re                   # noqa: for later use
 
 # On Minecraft, when you type "/connect localhost:3000" it creates a connection
-async def mineproxy(websocket, path):
+async def mineproxy(websocket):
     print('Connected')
 
-start_server = websockets.serve(mineproxy, host="localhost", port=3000)
-print('Ready. On MineCraft chat, type /connect localhost:3000')
+async def main():
+    async with websockets.serve(mineproxy, host='localhost', port=3000):
+        print('Ready. On MineCraft chat, type /connect localhost:3000. Press Ctrl+C to stop')
+        await asyncio.Future()
 
-asyncio.get_event_loop().run_until_complete(start_server)
-asyncio.get_event_loop().run_forever()
+asyncio.run(main())
 ```
 
 Run `python mineserver1.py`. Then type `/connect localhost:3000` in a Minecraft chat window. You'll see 2 things:
@@ -211,7 +215,7 @@ This code in is [`mineserver2.js`](mineserver2.js).
 
 ## Subscribe to chat messages - Python
 
-Add this code inside the `async def mineproxy(websocket, path):` function.
+Add this code inside the `async def mineproxy(websocket):` function.
 
 ```py
     # Tell Minecraft to send all chat messages. Required once when Minecraft starts
@@ -393,7 +397,9 @@ Replace the `print(msg)` line in [`mineserver2.py`](mineserver2.py) with with th
 If the user types "pyramid 3" on the chat window, `draw_pyramid(3)` is called.
 
 In `draw_pyramid()`, let's send commands to build a pyramid. To send a command, we need to create a
-JSON with the command (e.g. `setblock ~1 ~0 ~0 grass`). Add this code below the above code:
+JSON with the command (e.g. `setblock ~1 ~0 ~0 grass`).
+
+Add this code below `print('Connected')` in `async def mineproxy(websocket)`:
 
 ```py
     async def send(cmd):
@@ -508,17 +514,17 @@ This code in is [`mineserver4.js`](mineserver4.js).
 
 ## Understand Minecraft's responses - Python
 
-To print these, add this to the end of `socket.on('message', ...)`:
+To print these, add this to the end of `async for msg in websocket:`:
 
-```js
-    // If we get a command response, print it
-    if (msg.header.messagePurpose == 'commandResponse')
-      console.log(msg)
+```py
+            # If we get a command response, print it
+            if msg['header']['messagePurpose'] == 'commandResponse':
+                print(msg)
 ```
 
-This code in is [`mineserver4.js`](mineserver4.js).
+This code in is [`mineserver4.py`](mineserver4.py).
 
-- Run `node mineserver4.js`.
+- Run `python mineserver4.py`.
 - Then type `/connect localhost:3000` in a Minecraft chat window.
 - Then type `pyramid 3` in the chat window.
 - You'll be surrounded by a glowstone pyramid, and the *console will show every command response*.
@@ -661,9 +667,9 @@ Finally, in `async def send()`, instead of `await websocket.send(json.dumps(msg)
         send_queue.append(msg)          # Add the message to the queue
 ```
 
-This code in is [`mineserver5.js`](mineserver5.js).
+This code in is [`mineserver5.py`](mineserver5.py).
 
-- Run `node mineserver5.js`.
+- Run `python mineserver5.py`.
 - Then type `/connect localhost:3000` in a Minecraft chat window.
 - Then type `pyramid 6` in the chat window.
 - You'll be surrounded by a large glowstone pyramid.

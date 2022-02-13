@@ -1,12 +1,12 @@
 import asyncio
 import websockets
-import json
-from uuid import uuid4
-import re
+import json  # noqa: for later use
+from uuid import uuid4  # noqa: for later use
+import re  # noqa: for later use
 
 
 # On Minecraft, when you type "/connect localhost:3000" it creates a connection
-async def mineproxy(websocket, path):
+async def mineproxy(websocket):
     print('Connected')
     send_queue = []         # Queue of commands to be sent
     awaited_queue = {}      # Queue of responses awaited from Minecraft
@@ -85,13 +85,15 @@ async def mineproxy(websocket, path):
                 awaited_queue[command['header']['requestId']] = command
             send_queue = send_queue[count:]
             # Now we've sent as many commands as we can. Wait till the next message
-
+    # When MineCraft closes a connection, it raises this Exception.
     except websockets.exceptions.ConnectionClosedError:
         print('Disconnected from MineCraft')
 
 
-start_server = websockets.serve(mineproxy, host="localhost", port=3000)
-print('Ready. On MineCraft chat, type /connect localhost:3000')
+async def main():
+    async with websockets.serve(mineproxy, host='localhost', port=3000):
+        print('Ready. On MineCraft chat, type /connect localhost:3000. Press Ctrl+C to stop')
+        await asyncio.Future()
 
-asyncio.get_event_loop().run_until_complete(start_server)
-asyncio.get_event_loop().run_forever()
+
+asyncio.run(main())
