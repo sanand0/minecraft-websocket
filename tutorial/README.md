@@ -636,7 +636,7 @@ Now, let's do 2 things:
 2. Then, after processing Minecraft's command response, we'll send pending messages from
    `send_queue`, upto 100 at a time, and add them to the `awaited_queue`.
 
-Replace the `if (msg.header.messagePurpose == 'commandResponse')` block in [`mineserver4.js`](mineserver4.js) with this:
+Replace the `if msg['header']['messagePurpose'] == 'commandResponse':` block in [`mineserver4.py`](mineserver4.py) with this:
 
 ```py
             # If we get a command response, act on it
